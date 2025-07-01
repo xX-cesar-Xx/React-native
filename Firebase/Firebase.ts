@@ -28,9 +28,9 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Esquema simplificado con solo dos colecciones
+// Esquema actualizado con los nuevos campos
 const DB_SCHEMA: DatabaseSchema = {
-  version: 1,
+  version: 2, // Incrementado por los cambios
   collections: {
     usuarios: {
       fields: {
@@ -41,6 +41,8 @@ const DB_SCHEMA: DatabaseSchema = {
         edad: { type: 'number', required: false },
         direccion: { type: 'string', required: false },
         imagen: { type: 'string', required: false }, // URL de la imagen de perfil
+        rol: { type: 'string', required: false }, // admin, cliente, vendedor, etc.
+        formaPago: { type: 'string', required: false }, // tarjeta, efectivo, paypal, etc.
         authUid: { type: 'string', required: true },
         createdAt: { type: 'timestamp', required: true },
         updatedAt: { type: 'timestamp', required: true }
@@ -58,6 +60,13 @@ const DB_SCHEMA: DatabaseSchema = {
         precio: { type: 'number', required: true },
         cantidad: { type: 'number', required: true },
         imagen: { type: 'string', required: false }, // URL de la imagen del producto
+        status: { type: 'boolean', required: true }, // true = activo, false = inactivo
+        talla: { type: 'string', required: false }, // XS, S, M, L, XL, XXL, etc.
+        color: { type: 'string', required: false }, // rojo, azul, negro, etc.
+        gama: { type: 'string', required: false }, // alta, media, baja
+        tipo: { type: 'string', required: false }, // casual, formal, deportivo, etc.
+        tipo_prenda: { type: 'string', required: false }, // camisa, pantalón, zapatos, etc.
+        marca: { type: 'string', required: false }, // Nike, Adidas, Zara, etc.
         createdAt: { type: 'timestamp', required: true },
         updatedAt: { type: 'timestamp', required: true }
       }
@@ -181,7 +190,7 @@ export const validateDocument = async (collectionName: string, data: Record<stri
   return true;
 };
 
-// Interfaces para tipado
+// Interfaces actualizadas para tipado
 interface UserProfileData {
   nombre: string;
   apellido: string;
@@ -189,6 +198,8 @@ interface UserProfileData {
   edad?: number;
   direccion?: string;
   imagen?: string; // URL de la imagen de perfil
+  rol: string; // admin, cliente, vendedor, etc.
+  formaPago?: string; // tarjeta, efectivo, paypal, etc.
 }
 
 interface ProductData {
@@ -197,6 +208,13 @@ interface ProductData {
   precio: number;
   cantidad: number;
   imagen?: string; // URL de la imagen del producto
+  status: boolean; // true = activo, false = inactivo
+  talla?: string; // XS, S, M, L, XL, XXL, etc.
+  color?: string; // rojo, azul, negro, etc.
+  gama?: string; // alta, media, baja
+  tipo?: string; // casual, formal, deportivo, etc.
+  tipo_prenda?: string; // camisa, pantalón, zapatos, etc.
+  marca?: string; // Nike, Adidas, Zara, etc.
 }
 
 /**

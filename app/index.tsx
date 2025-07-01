@@ -5,19 +5,15 @@ import { Link, router } from 'expo-router';
 import { AntDesign } from '@expo/vector-icons';
 import { FirebaseError } from 'firebase/app';
 
-// Importaciones optimizadas de Firebase
+// Firebase imports
 import { auth } from '../Firebase/firebaseconfig';
-import { 
-  initializeDatabase,
-  createUserWithProfile 
-} from '../Firebase/Firebase';
-import { 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from 'firebase/auth';
+import { initializeDatabase } from '../Firebase/Firebase';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from 'firebase/auth';
 
-// Tipo para el estado del formulario
+// Configuración
+const ADMIN_EMAIL = 'felipealvaro48@gmail.com';
+const API_URL = 'https://felipe25.alwaysdata.net/api/';
+
 interface FormData {
   email: string;
   password: string;
@@ -28,8 +24,17 @@ interface FormData {
   direccion: string;
 }
 
+interface UserProfile {
+  firebase_uid: string;
+  email: string;
+  nombre: string;
+  apellido: string;
+  usuario: string;
+  edad?: number;
+  direccion?: string;
+}
+
 export default function AuthScreen() {
-  // Estados con tipado explícito
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -44,17 +49,21 @@ export default function AuthScreen() {
   const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string>('');
   const [isSignUp, setIsSignUp] = useState<boolean>(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // Reemplaza tu useEffect actual con este código corregido
   useEffect(() => {
     let unsubscribe: () => void;
     
     const initFirebase = async () => {
       try {
         await initializeDatabase();
-        unsubscribe = onAuthStateChanged(auth, (user) => {
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
           setUser(user);
-          if (user) router.replace('/Home');
+          if (user) {
+            // Obtener perfil del usuario desde alwaysData
+            await fetchUserProfile(user.uid);
+            router.replace('/home');
+          }
         });
       } catch (err) {
         console.error("Firebase init error:", err);
@@ -64,13 +73,51 @@ export default function AuthScreen() {
 
     initFirebase();
 
-    // Función de limpieza que se ejecutará al desmontar el componente
     return () => {
       if (unsubscribe) unsubscribe();
     };
   }, []);
 
-  // Manejo de cambios en el formulario
+  // Función para obtener el perfil del usuario desde alwaysData
+  const fetchUserProfile = async (firebaseUid: string) => {
+    try {
+      const response = await fetch(`${API_URL}users.php?uid=${firebaseUid}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserProfile(data.user);
+      } else {
+        console.error('Perfil no encontrado en alwaysData');
+      }
+    } catch (error) {
+      console.error('Error al obtener perfil:', error);
+    }
+  };
+
+  // Función para crear usuario en alwaysData
+  const createUserInAlwaysData = async (profileData: UserProfile) => {
+    try {
+      const response = await fetch(`${API_URL}users.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData)
+      });
+      
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Error al crear usuario en alwaysData');
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error en alwaysData:', error);
+      throw error;
+    }
+  };
+
   const handleChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -79,7 +126,6 @@ export default function AuthScreen() {
     setError('');
   };
 
-  // Validación mejorada del formulario
   const validateInputs = (): boolean => {
     const { email, password, nombre, apellido, edad } = formData;
     
@@ -113,23 +159,36 @@ export default function AuthScreen() {
     return true;
   };
 
-  // Registro de usuario optimizado
   const handleSignUp = async () => {
     if (!validateInputs()) return;
     
     setLoading(true);
     try {
-      await createUserWithProfile(
-        formData.email,
-        formData.password,
-        {
-          nombre: formData.nombre,
-          apellido: formData.apellido,
-          usuario: formData.usuario || formData.email.split('@')[0],
-          edad: formData.edad ? parseInt(formData.edad) : undefined,
-          direccion: formData.direccion || undefined
-        }
+      // 1. Crear usuario en Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth, 
+        formData.email, 
+        formData.password
       );
+      
+      const firebaseUser = userCredential.user;
+      
+      // 2. Crear perfil en alwaysData
+      const profileData: UserProfile = {
+        firebase_uid: firebaseUser.uid,
+        email: formData.email,
+        nombre: formData.nombre,
+        apellido: formData.apellido,
+        usuario: formData.usuario || formData.email.split('@')[0],
+        edad: formData.edad ? parseInt(formData.edad) : undefined,
+        direccion: formData.direccion || undefined
+      };
+      
+      await createUserInAlwaysData(profileData);
+      
+      // 3. Actualizar estado local
+      setUserProfile(profileData);
+      
       Alert.alert('Éxito', 'Registro completado');
       resetForm();
     } catch (error) {
@@ -139,7 +198,6 @@ export default function AuthScreen() {
     }
   };
 
-  // Inicio de sesión
   const handleSignIn = async () => {
     if (!validateInputs()) return;
     
@@ -153,17 +211,16 @@ export default function AuthScreen() {
     }
   };
 
-  // Cierre de sesión
   const handleSignOut = async () => {
     try {
       await signOut(auth);
+      setUserProfile(null);
       Alert.alert('Éxito', 'Sesión cerrada');
     } catch (error) {
       handleAuthError(error, 'cierre de sesión');
     }
   };
 
-  // Manejo de errores tipado
   const handleAuthError = (error: unknown, action: string) => {
     const defaultMsg = `Error en ${action}`;
     
@@ -185,7 +242,6 @@ export default function AuthScreen() {
     Alert.alert('Error', error instanceof Error ? error.message : defaultMsg);
   };
 
-  // Reset del formulario
   const resetForm = () => {
     setFormData({
       email: '',
@@ -207,16 +263,34 @@ export default function AuthScreen() {
     );
   }
 
-  // Renderizado
   return (
     <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
       <Container>
         {user ? (
           <AuthenticatedView>
-            <WelcomeText>Bienvenido, {user.email}</WelcomeText>
+            <WelcomeText>Bienvenido, {userProfile?.nombre || user.email}</WelcomeText>
+            
             <AuthButton onPress={handleSignOut}>
               <ButtonText>Cerrar sesión</ButtonText>
             </AuthButton>
+            
+            {/* Solo visible para el admin */}
+            {user.email === ADMIN_EMAIL && (
+              <>
+                <Link href="/(proyectos)/agregar-producto" asChild>
+                  <AuthButton style={{ backgroundColor: '#4CAF50' }}>
+                    <ButtonText>Agregar Productos</ButtonText>
+                  </AuthButton>
+                </Link>
+                
+                <Link href="/Home" asChild>
+                  <AuthButton style={{ backgroundColor: '#2196F3' }}>
+                    <ButtonText>Ir al Panel Admin</ButtonText>
+                  </AuthButton>
+                </Link>
+              </>
+            )}
+            
             <Link href="/Home" asChild>
               <NavLink>Ir al inicio</NavLink>
             </Link>
@@ -291,7 +365,7 @@ export default function AuthScreen() {
   );
 }
 
-// Componentes estilizados (sin cambios)
+// Styled Components (mantenidos igual)
 const Container = styled.View`
   flex: 1;
   justify-content: center;
@@ -343,7 +417,7 @@ const WelcomeText = styled.Text`
 const AuthIcon = styled(AntDesign)`
   align-self: center;
   margin-bottom: 10px;
-  color: #6a1b9a;
+  color:rgb(27, 82, 154);
 `;
 
 const StyledInput = styled.TextInput`
@@ -388,7 +462,7 @@ const NavLink = styled.Text`
 `;
 
 const ErrorText = styled.Text`
-  color: #d32f2f;
+  color:rgb(255, 30, 0);
   text-align: center;
   margin-bottom: 10px;
   font-size: 16px;
