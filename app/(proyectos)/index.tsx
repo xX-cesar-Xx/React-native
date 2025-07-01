@@ -1,8 +1,8 @@
 import { useRouter } from "expo-router";
-import { Button, Image, TouchableOpacity } from "react-native";
 import { useState } from "react";
+import { Button, Image, TouchableOpacity } from "react-native";
 import { styled, ThemeProvider } from "styled-components/native";
-import { temaoscuro, temaclaro } from "../../style/theme";
+import { temaclaro, temaoscuro } from "../../style/theme";
 
 export default function Pantalla1() {
     const [istemaoscuro, setIstemaoscuro] = useState(false);
@@ -33,6 +33,7 @@ export default function Pantalla1() {
                     <Texto>CONTADOR</Texto>
                 </TouchableOpacity>
                 <Texto>Bienvenidos a Pantalla 1</Texto>
+                <Texto>HOLA FELIPE</Texto>
                 <StyledInput
                     placeholder="Escribe algo"
                     placeholderTextColor={currentTheme.Colors.text}
