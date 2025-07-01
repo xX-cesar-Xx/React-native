@@ -34,6 +34,7 @@ export default function Pantalla1() {
                 </TouchableOpacity>
                 <Texto>Bienvenidos a Pantalla 1</Texto>
                 <Texto>HOLA SOY CHRIS</Texto>
+                <Texto>Hola de nuevo</Texto>
                 <StyledInput
                     placeholder="Escribe algo"
                     placeholderTextColor={currentTheme.Colors.text}
